@@ -54,7 +54,7 @@ input,select,textarea{font-family:inherit}
 
 /* Bottom nav (mobile) */
 #nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:rgba(255,255,255,.94);backdrop-filter:blur(20px);border-top:1px solid rgba(79,70,229,.1);display:flex;z-index:100}
-.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;color:var(--txt2);font-size:9.5px;font-weight:700;padding:5px 2px;position:relative;letter-spacing:.02em}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;color:var(--txt2);font-size:8.5px;font-weight:700;padding:5px 1px;position:relative;letter-spacing:.01em}
 .nav-btn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
 .nav-btn.active{color:var(--indigo)}
 .nav-btn.active svg{transform:scale(1.12)}
@@ -281,6 +281,9 @@ input,select,textarea{font-family:inherit}
       <button class="sb-nav-btn" data-tab="rep" onclick="showTab('rep')">
         <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Reportes
       </button>
+      <button class="sb-nav-btn" data-tab="reservas" onclick="showTab('reservas')">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/></svg>Reservas
+      </button>
       <button class="sb-nav-btn" data-tab="cfg" onclick="showTab('cfg')">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>Config
       </button>
@@ -495,6 +498,32 @@ input,select,textarea{font-family:inherit}
       </div>
     </div>
 
+    <!-- RESERVAS -->
+    <div id="tab-reservas" class="sec tab-content" style="display:none">
+      <div class="dt-head">
+        <div><div class="dt-title">Reservas</div><div class="dt-sub">Ahorros en Pesos y Dólares</div></div>
+        <button class="btn btn-p btn-s" onclick="openReservaModal(null)">+ Agregar</button>
+      </div>
+      <div class="stats" style="margin-bottom:12px">
+        <div class="stat"><div class="stat-ico" style="background:rgba(16,185,129,.1)">💰</div><div class="stat-lbl">Total ARS</div><div class="stat-val" id="res-tot-ars">$0</div></div>
+        <div class="stat"><div class="stat-ico" style="background:rgba(6,182,212,.1)">💵</div><div class="stat-lbl">Total USD</div><div class="stat-val" id="res-tot-usd">USD 0</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Detalle por ubicación (ARS)</div></div>
+          <div id="res-loc-ars"></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Detalle por ubicación (USD)</div></div>
+          <div id="res-loc-usd"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><div class="card-title">Todos los movimientos</div></div>
+        <div id="res-list"></div>
+      </div>
+    </div>
+
     <!-- CONFIG -->
     <div id="tab-cfg" class="sec tab-content" style="display:none">
       <div class="dt-head">
@@ -561,6 +590,9 @@ input,select,textarea{font-family:inherit}
     </button>
     <button class="nav-btn" data-tab="rep" onclick="showTab('rep')">
       <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Reportes
+    </button>
+    <button class="nav-btn" data-tab="reservas" onclick="showTab('reservas')">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/></svg>Reservas
     </button>
     <button class="nav-btn" data-tab="cfg" onclick="showTab('cfg')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>Config
@@ -660,6 +692,38 @@ input,select,textarea{font-family:inherit}
     <div class="m-actions">
       <button class="btn btn-o btn-full" onclick="closeModal('m-pdf')">Cancelar</button>
       <button class="btn btn-p btn-full" onclick="confirmPDF()">Guardar y registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="m-reserva">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="mr-title">Nueva reserva</div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Moneda</label>
+        <select id="mr-moneda" class="fi">
+          <option value="ARS">Pesos (ARS)</option>
+          <option value="USD">Dólares (USD)</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Fecha</label><input id="mr-fecha" type="date" class="fi"></div>
+    </div>
+    <div class="fg"><label class="fl">Ubicación</label>
+      <select id="mr-ubicacion" class="fi">
+        <option>Casa</option>
+        <option>BBVA</option>
+        <option>Galicia</option>
+        <option>Brubank</option>
+        <option>Cocos Capital</option>
+        <option>Sociedad Muuk SRL</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Monto</label><input id="mr-monto" type="number" class="fi" placeholder="0"></div>
+    <div class="fg"><label class="fl">Descripción (opcional)</label><input id="mr-desc" class="fi" placeholder="Ej: ahorro mensual, venta dólares…"></div>
+    <div class="m-actions">
+      <button class="btn btn-o btn-full" onclick="closeModal('m-reserva')">Cancelar</button>
+      <button class="btn btn-p btn-full" onclick="saveReserva()">Guardar</button>
     </div>
   </div>
 </div>
@@ -771,7 +835,7 @@ function DEFAULT_STATE(){
       tarjeta:['Visa Banco Galicia','Mastercard Banco Galicia','American Express','MercadoLibre','Visa Banco Macro','Mastercard Banco Macro','Visa BBVA','Mastercard BBVA','Visa Banco Provincia'],
       fijo:['Expensas'],variable:['Entretenimiento','Salud'],efectivo:['Comida','Varios']
     },
-    tarjetas:[],gastosFijos:[],gastosVariables:[],efectivo:[],pdfHistory:[]
+    tarjetas:[],gastosFijos:[],gastosVariables:[],efectivo:[],pdfHistory:[],reservas:[]
   };
 }
 
@@ -835,6 +899,7 @@ function showTab(tab){
     if(tab==='tarjetas')renderTarjChart();
     if(tab==='gastos'){renderFijoChart();renderVarChart();renderEfChart();}
     if(tab==='rep')renderRepCharts();
+    if(tab==='reservas')renderReservas();
   },60);
 }
 
@@ -869,7 +934,7 @@ function prevPeriod(){var pm=selM===0?11:selM-1,py=selM===0?selY-1:selY;return{y
 function renderAll(){
   renderHeader();renderSidebar();renderDashboard();
   renderTarjetas();renderFijos();renderVariables();renderEfectivo();
-  renderReports();renderConfig();
+  renderReports();renderReservas();renderConfig();
 }
 
 // ════════════════════════════════════════════════════
@@ -1089,6 +1154,78 @@ function renderEfChart(){
   D.efectivo.filter(function(r){return new Date(r.fecha).getFullYear()===selY;}).forEach(function(r){byM[new Date(r.fecha).getMonth()]+=r.montoARS;});
   destroyChart('ch-ef');
   charts['ch-ef']=new Chart(document.getElementById('ch-ef'),{type:'bar',data:{labels:MS,datasets:[{data:byM,backgroundColor:'#7C3AED',borderRadius:7,borderSkipped:false}]},options:chartBase()});
+}
+
+// ════════════════════════════════════════════════════
+//  RESERVAS
+// ════════════════════════════════════════════════════
+var RES_LOCS=['Casa','BBVA','Galicia','Brubank','Cocos Capital','Sociedad Muuk SRL'];
+var editRes=null;
+
+function renderReservas(){
+  if(!D.reservas)D.reservas=[];
+  var items=D.reservas;
+  var totARS=items.reduce(function(s,r){return s+(r.moneda==='ARS'?r.monto:0);},0);
+  var totUSD=items.reduce(function(s,r){return s+(r.moneda==='USD'?r.monto:0);},0);
+  document.getElementById('res-tot-ars').textContent=fmt(totARS);
+  document.getElementById('res-tot-usd').textContent=fmtU(totUSD);
+
+  // Por ubicación ARS
+  var arsLoc={};RES_LOCS.forEach(function(l){arsLoc[l]=0;});
+  items.filter(function(r){return r.moneda==='ARS';}).forEach(function(r){arsLoc[r.ubicacion]=(arsLoc[r.ubicacion]||0)+r.monto;});
+  var arsEntries=RES_LOCS.filter(function(l){return arsLoc[l]>0;});
+  document.getElementById('res-loc-ars').innerHTML=arsEntries.length?arsEntries.map(function(l){
+    var w=totARS?Math.round(arsLoc[l]/totARS*100):0;
+    return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:700;font-size:13px">'+l+'</span><span style="font-weight:800;color:var(--green)">'+fmt(arsLoc[l])+'</span></div><div class="prog"><div class="prog-fill" style="width:'+w+'%;background:var(--green)"></div></div></div>';
+  }).join(''):'<div class="empty"><div class="empty-ico">💰</div><p>Sin reservas en ARS</p></div>';
+
+  // Por ubicación USD
+  var usdLoc={};RES_LOCS.forEach(function(l){usdLoc[l]=0;});
+  items.filter(function(r){return r.moneda==='USD';}).forEach(function(r){usdLoc[r.ubicacion]=(usdLoc[r.ubicacion]||0)+r.monto;});
+  var usdEntries=RES_LOCS.filter(function(l){return usdLoc[l]>0;});
+  document.getElementById('res-loc-usd').innerHTML=usdEntries.length?usdEntries.map(function(l){
+    var w=totUSD?Math.round(usdLoc[l]/totUSD*100):0;
+    return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-weight:700;font-size:13px">'+l+'</span><span style="font-weight:800;color:var(--cyan)">'+fmtU(usdLoc[l])+'</span></div><div class="prog"><div class="prog-fill" style="width:'+w+'%;background:var(--cyan)"></div></div></div>';
+  }).join(''):'<div class="empty"><div class="empty-ico">💵</div><p>Sin reservas en USD</p></div>';
+
+  // Lista completa
+  if(!items.length){document.getElementById('res-list').innerHTML='<div class="empty"><div class="empty-ico">🏦</div><p>No hay reservas cargadas</p></div>';return;}
+  var sorted=items.slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  document.getElementById('res-list').innerHTML=sorted.map(function(r){
+    var isUSD=r.moneda==='USD';
+    var color=isUSD?'var(--cyan)':'var(--green)';
+    var ico=isUSD?'💵':'💰';
+    return '<div class="tx"><div class="tx-ico" style="background:'+(isUSD?'rgba(6,182,212,.1)':'rgba(16,185,129,.1)')+'">'+ico+'</div>'+
+      '<div class="tx-info"><div class="tx-name">'+(r.descripcion||r.ubicacion)+'</div><div class="tx-sub">'+r.ubicacion+' · '+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'})+'</div></div>'+
+      '<div class="tx-right"><div class="tx-amt" style="color:'+color+'">'+(isUSD?fmtU(r.monto):fmt(r.monto))+'</div>'+
+      '<div class="tx-btns"><button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openReservaModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
+      '<button class="btn btn-d btn-s" style="padding:3px 8px;font-size:11px" onclick="delReserva(\''+r.id+'\')">🗑</button></div></div></div>';
+  }).join('');
+}
+
+function openReservaModal(rec){
+  editRes=rec||null;
+  var today=new Date().toISOString().split('T')[0];
+  document.getElementById('mr-title').textContent=rec?'Editar reserva':'Nueva reserva';
+  document.getElementById('mr-moneda').value=rec?rec.moneda:'ARS';
+  document.getElementById('mr-ubicacion').value=rec?rec.ubicacion:RES_LOCS[0];
+  document.getElementById('mr-monto').value=rec?rec.monto:'';
+  document.getElementById('mr-desc').value=rec?(rec.descripcion||''):'';
+  document.getElementById('mr-fecha').value=rec?rec.fecha:today;
+  openModal('m-reserva');
+}
+function saveReserva(){
+  var rec={id:editRes?editRes.id:uid(),moneda:document.getElementById('mr-moneda').value,ubicacion:document.getElementById('mr-ubicacion').value,monto:parseFloat(document.getElementById('mr-monto').value)||0,descripcion:document.getElementById('mr-desc').value,fecha:document.getElementById('mr-fecha').value};
+  if(!rec.fecha||rec.monto<=0){toast('Completá fecha y monto',1);return;}
+  if(!D.reservas)D.reservas=[];
+  closeModal('m-reserva');
+  if(editRes){var i=D.reservas.findIndex(function(x){return x.id===editRes.id;});if(i>=0)D.reservas[i]=rec;}else D.reservas.push(rec);
+  save();renderReservas();toast('✓ Guardado');
+}
+function delReserva(id){
+  if(!confirm('¿Eliminar esta reserva?'))return;
+  D.reservas=D.reservas.filter(function(r){return r.id!==id;});
+  save();renderReservas();toast('✓ Eliminado');
 }
 
 // ════════════════════════════════════════════════════
