@@ -465,6 +465,7 @@ input,select,textarea{font-family:inherit}
         <button class="sub-tab" onclick="switchRepTab('annual')">Anual</button>
         <button class="sub-tab" onclick="switchRepTab('pdfs')">PDFs</button>
         <button class="sub-tab" onclick="switchRepTab('top')">Top</button>
+        <button class="sub-tab" onclick="switchRepTab('historial')">📈 Historial</button>
       </div>
 
       <div id="rep-monthly">
@@ -510,6 +511,18 @@ input,select,textarea{font-family:inherit}
             <div class="card-hd"><div class="card-title">Top por tarjeta</div></div>
             <div class="chart-wrap"><canvas id="ch-top"></canvas></div>
           </div>
+        </div>
+      </div>
+
+      <div id="rep-historial" style="display:none">
+        <div class="stats" id="hist-stats" style="margin-bottom:14px"></div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Gastos por tarjeta — Ene 2025 a hoy</div></div>
+          <div class="chart-wrap" style="height:280px"><canvas id="ch-historial"></canvas></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-hd"><div class="card-title">Total mensual histórico</div></div>
+          <div class="chart-wrap" style="height:180px"><canvas id="ch-hist-total"></canvas></div>
         </div>
       </div>
     </div>
@@ -956,8 +969,8 @@ function switchGastosTab(t){
 }
 function switchRepTab(t){
   repSubTab=t;
-  ['monthly','annual','pdfs','top'].forEach(function(x){document.getElementById('rep-'+x).style.display=x===t?'block':'none';});
-  document.querySelectorAll('#rep-subtabs .sub-tab').forEach(function(b,i){b.classList.toggle('active',['monthly','annual','pdfs','top'][i]===t);});
+  ['monthly','annual','pdfs','top','historial'].forEach(function(x){document.getElementById('rep-'+x).style.display=x===t?'block':'none';});
+  document.querySelectorAll('#rep-subtabs .sub-tab').forEach(function(b,i){b.classList.toggle('active',['monthly','annual','pdfs','top','historial'][i]===t);});
   setTimeout(function(){renderRepCharts();},60);
 }
 
@@ -1353,6 +1366,7 @@ function renderReports(){renderRepMonthly();renderRepAnnual();renderRepPDFs();re
 function renderRepCharts(){
   if(repSubTab==='monthly')renderRepMonthly();
   if(repSubTab==='annual')renderRepAnnual();
+  if(repSubTab==='historial')renderHistorial();
   if(repSubTab==='pdfs')renderRepPDFs();
   if(repSubTab==='top')renderRepTop();
 }
@@ -1424,6 +1438,48 @@ function renderRepTop(){
   var tl=Object.keys(by).sort(function(a,b){return by[b]-by[a];}).slice(0,6);
   destroyChart('ch-top');
   if(tl.length)charts['ch-top']=new Chart(document.getElementById('ch-top'),{type:'bar',data:{labels:tl.map(function(l){return l.split(' ').slice(0,2).join(' ');}),datasets:[{data:tl.map(function(l){return by[l];}),backgroundColor:PAL,borderRadius:7,borderSkipped:false}]},options:Object.assign(chartBase(),{indexAxis:'y',plugins:{legend:{display:false}}})});
+}
+
+function renderHistorial(){
+  var now=new Date();
+  var mos=[];
+  var y=2025,m=0;
+  while(y<now.getFullYear()||(y===now.getFullYear()&&m<=now.getMonth())){
+    mos.push({y:y,m:m,label:MS[m].slice(0,3)+' '+String(y).slice(2)});
+    m++;if(m>11){m=0;y++;}
+  }
+  var labels=mos.map(function(mo){return mo.label;});
+  var cardNames=['American Express','Visa Banco Galicia','Mastercard Banco Galicia','Visa BBVA','Mastercard BBVA','Visa Banco Macro','Mastercard Banco Macro','Visa Banco Ciudad','Visa Banco Provincia','Mastercard Banco Provincia','MercadoPago'];
+  var cardColors=['#8B5CF6','#4F46E5','#7C3AED','#0EA5E9','#06B6D4','#10B981','#34D399','#F59E0B','#EF4444','#F87171','#3B82F6'];
+  var datasets=[];
+  cardNames.forEach(function(name,ci){
+    var data=mos.map(function(mo){
+      var s=0;
+      D.tarjetas.filter(function(t){var d=new Date(t.fecha);return t.tarjeta===name&&d.getFullYear()===mo.y&&d.getMonth()===mo.m;}).forEach(function(t){s+=t.monto;});
+      return s||null;
+    });
+    if(!data.some(function(v){return v!==null;}))return;
+    datasets.push({label:name.split(' ').slice(0,2).join(' '),data:data,backgroundColor:cardColors[ci],stack:'s'});
+  });
+  var expData=mos.map(function(mo){
+    var s=0;
+    D.gastosFijos.filter(function(f){var d=new Date(f.fecha);return f.categoria==='Expensas'&&d.getFullYear()===mo.y&&d.getMonth()===mo.m;}).forEach(function(f){s+=f.monto;});
+    return s||null;
+  });
+  if(expData.some(function(v){return v!==null;}))datasets.push({label:'Expensas',data:expData,backgroundColor:'#6B7280',stack:'s'});
+  var totals=mos.map(function(_,i){return datasets.reduce(function(s,ds){return s+(ds.data[i]||0);},0);});
+  var cb2=function(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}};};
+  destroyChart('ch-historial');
+  if(datasets.length)charts['ch-historial']=new Chart(document.getElementById('ch-historial'),{type:'bar',data:{labels:labels,datasets:datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10,weight:'600'},boxWidth:9,boxHeight:9,padding:6}},tooltip:{callbacks:{footer:function(items){var t=items.reduce(function(s,i){return s+(i.raw||0);},0);return 'Total: $'+Math.round(t).toLocaleString('es-AR');}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+v;},font:{size:10}},grid:{color:'rgba(0,0,0,.05)'}}}}});
+  destroyChart('ch-hist-total');
+  charts['ch-hist-total']=new Chart(document.getElementById('ch-hist-total'),{type:'line',data:{labels:labels,datasets:[{label:'Total',data:totals,borderColor:'#4F46E5',backgroundColor:'rgba(79,70,229,.1)',fill:true,tension:.35,pointRadius:3,pointBackgroundColor:'#4F46E5',borderWidth:2}]},options:Object.assign(cb2(),{plugins:{legend:{display:false}}})});
+  var t25=totals.slice(0,12).reduce(function(s,v){return s+v;},0);
+  var t26=totals.slice(12).reduce(function(s,v){return s+v;},0);
+  var cnt26=totals.slice(12).filter(function(v){return v>0;}).length||1;
+  var prom=totals.filter(function(v){return v>0;});
+  var avgMon=prom.reduce(function(s,v){return s+v;},0)/(prom.length||1);
+  var el=document.getElementById('hist-stats');
+  if(el)el.innerHTML=statCard('📅','Total 2025',t25,0)+statCard('🗓','Total 2026',t26,0)+statCard('📊','Prom. mensual',Math.round(avgMon),0);
 }
 
 // ════════════════════════════════════════════════════
