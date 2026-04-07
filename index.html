@@ -294,6 +294,7 @@ input,select,textarea{font-family:inherit}
       </button>
     </nav>
 
+    <button id="curr-toggle-sb" onclick="toggleViewCurrency()" style="font-size:11px;font-weight:700;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);margin-top:10px;cursor:pointer;text-align:center;width:100%;transition:all .2s;letter-spacing:.02em;position:relative;z-index:1">💵 Ver todo en USD</button>
     <div id="sb-sync">● Sincronizado</div>
   </div>
 
@@ -301,7 +302,10 @@ input,select,textarea{font-family:inherit}
   <div id="header">
     <div id="sync-badge">● Sincronizado</div>
     <div class="hd-top">
-      <div class="hd-logo">💳 Gastos</div>
+      <div>
+        <div class="hd-logo">💳 Gastos</div>
+        <button id="curr-toggle-hd" onclick="toggleViewCurrency()" style="margin-top:5px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.2);cursor:pointer;backdrop-filter:blur(6px);letter-spacing:.02em;transition:all .2s">💵 Ver en USD</button>
+      </div>
       <div class="hd-period">
         <button class="hd-pill-btn" onclick="shiftMonth(-1)">‹</button>
         <div class="hd-pill" id="hd-pill-txt"></div>
@@ -535,8 +539,8 @@ input,select,textarea{font-family:inherit}
         </div>
       </div>
       <div class="stats" style="margin-bottom:12px">
-        <div class="stat"><div class="stat-ico" style="background:rgba(16,185,129,.1)">💰</div><div class="stat-lbl">Total ARS</div><div class="stat-val" id="res-tot-ars">$0</div></div>
-        <div class="stat"><div class="stat-ico" style="background:rgba(6,182,212,.1)">💵</div><div class="stat-lbl">Total USD</div><div class="stat-val" id="res-tot-usd">USD 0</div></div>
+        <div class="stat"><div class="stat-ico" style="background:rgba(16,185,129,.1)">💰</div><div class="stat-lbl" id="res-lbl-ars">Total ARS</div><div class="stat-val" id="res-tot-ars">$0</div></div>
+        <div class="stat"><div class="stat-ico" style="background:rgba(6,182,212,.1)">💵</div><div class="stat-lbl" id="res-lbl-usd">Total USD</div><div class="stat-val" id="res-tot-usd">USD 0</div></div>
       </div>
       <div class="two-col">
         <div class="card">
@@ -884,6 +888,9 @@ var editT=null,editF=null,editV=null,editE=null;
 var cfgType=null,pdfData=null;
 var gastosSubTab='fijo',repSubTab='monthly';
 var charts={};
+// Tipo de cambio y modo de visualización de moneda
+var tcVenta=0,tcCompra=0;
+var viewUSD=false;
 var MO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 var MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 var PAL=['#4F46E5','#7C3AED','#06B6D4','#10B981','#F59E0B','#EF4444','#8B5CF6','#0EA5E9','#14B8A6','#F97316','#EC4899'];
@@ -957,9 +964,21 @@ function switchRepTab(t){
 // ════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════
-function fmt(n){return '$'+(Math.round(n)||0).toLocaleString('es-AR');}
-function fmtU(n){return 'USD '+((n||0).toLocaleString('es-AR',{maximumFractionDigits:2}));}
-function fmtK(v){if(v>=1000000)return '$'+(v/1000000).toFixed(1)+'M';if(v>=1000)return '$'+(v/1000).toFixed(0)+'k';return '$'+v;}
+// fmt: formatea monto ARS. En modo USD convierte.
+function fmt(n){
+  if(viewUSD&&tcVenta>0){var u=(n||0)/tcVenta;return 'USD '+u.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  return '$'+(Math.round(n)||0).toLocaleString('es-AR');
+}
+// fmtU: formatea monto USD. En modo ARS convierte (si hay cotización).
+function fmtU(n){
+  if(!viewUSD&&tcVenta>0){return '$'+Math.round((n||0)*tcVenta).toLocaleString('es-AR');}
+  return 'USD '+((n||0).toLocaleString('es-AR',{maximumFractionDigits:2}));
+}
+// fmtK: versión abreviada. En modo USD convierte.
+function fmtK(v){
+  if(viewUSD&&tcVenta>0){var u=(v||0)/tcVenta;if(u>=1000)return 'USD '+(u/1000).toFixed(1)+'k';return 'USD '+u.toFixed(0);}
+  if(v>=1000000)return '$'+(v/1000000).toFixed(1)+'M';if(v>=1000)return '$'+(v/1000).toFixed(0)+'k';return '$'+(v||0);
+}
 function uid(){return Date.now()+Math.floor(Math.random()*1000);}
 function inPeriod(rec,y,m){var d=new Date(rec.fecha);return d.getFullYear()===y&&d.getMonth()===m;}
 function getTarjTotal(y,m){return D.tarjetas.filter(function(r){return inPeriod(r,y,m);}).reduce(function(s,r){return s+r.monto;},0);}
@@ -983,7 +1002,10 @@ function renderSidebar(){
   var diff=cur-prev,pct=prev?(diff/prev*100).toFixed(1):0;
   var sbT=document.getElementById('sb-total');
   var sbD=document.getElementById('sb-delta');
-  if(sbT)sbT.innerHTML='<sup style="font-size:14px;font-weight:600">$</sup>'+Math.round(cur).toLocaleString('es-AR');
+  if(sbT){
+    if(viewUSD&&tcVenta>0){var usd=(cur/tcVenta).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});sbT.innerHTML='<sup style="font-size:12px;font-weight:600">USD </sup>'+usd;}
+    else sbT.innerHTML='<sup style="font-size:14px;font-weight:600">$</sup>'+Math.round(cur).toLocaleString('es-AR');
+  }
   if(sbD){
     var sign=diff>0?'▲':'▼',col=diff>0?'#FCA5A5':'#6EE7B7';
     sbD.innerHTML=prev?'<span style="color:'+col+'">'+sign+' '+Math.abs(pct)+'% vs '+MS[pp.m]+'</span>':'';
@@ -1007,7 +1029,8 @@ function sbCat(ico,label,val,fn){
 function renderHeader(){
   var pp=prevPeriod(),cur=getTotal(selY,selM),prev=getTotal(pp.y,pp.m);
   var diff=cur-prev,pct=prev?(diff/prev*100).toFixed(1):0;
-  document.getElementById('hd-total').innerHTML='<sup>$</sup>'+Math.round(cur).toLocaleString('es-AR');
+  if(viewUSD&&tcVenta>0){document.getElementById('hd-total').innerHTML='<sup style="font-size:22px">USD </sup>'+(cur/tcVenta).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+  else document.getElementById('hd-total').innerHTML='<sup>$</sup>'+Math.round(cur).toLocaleString('es-AR');
   var sign=diff>0?'▲':'▼',col=diff>0?'#FCA5A5':'#6EE7B7';
   document.getElementById('hd-delta').innerHTML='<span style="color:'+col+'">'+sign+' '+Math.abs(pct)+'% vs '+MS[pp.m]+'</span>';
   var t=getTarjTotal(selY,selM),f=getFijoTotal(selY,selM),v=getVarTotal(selY,selM),e=getEfTotal(selY,selM);
@@ -1237,6 +1260,10 @@ function renderReservas(){
   var totUSD=items.reduce(function(s,r){return s+(r.moneda==='USD'?r.monto:0);},0);
   document.getElementById('res-tot-ars').textContent=fmt(totARS);
   document.getElementById('res-tot-usd').textContent=fmtU(totUSD);
+  // Actualizar labels según modo activo
+  var lA=document.getElementById('res-lbl-ars'),lU=document.getElementById('res-lbl-usd');
+  if(lA)lA.textContent=viewUSD?'Total ARS → USD':'Total ARS';
+  if(lU)lU.textContent=(tcVenta>0&&!viewUSD)?'Total USD → ARS':'Total USD';
 
   // Por ubicación ARS
   var arsLoc={};RES_LOCS.forEach(function(l){arsLoc[l]=0;});
@@ -1263,10 +1290,14 @@ function renderReservas(){
     var isUSD=r.moneda==='USD';
     var color=isUSD?'var(--cyan)':'var(--green)';
     var ico=isUSD?'💵':'💰';
+    var convBtn=isUSD
+      ?'<button class="btn btn-s" style="padding:3px 8px;font-size:10px;background:rgba(16,185,129,.12);color:#059669;border:1px solid rgba(16,185,129,.25)" title="Pasar a ARS al tipo oficial Banco Nación" onclick="convertirReserva(\''+r.id+'\')">💱 → $ARS</button>'
+      :'<button class="btn btn-s" style="padding:3px 8px;font-size:10px;background:rgba(6,182,212,.12);color:#0891B2;border:1px solid rgba(6,182,212,.25)" title="Pasar a USD al tipo oficial Banco Nación" onclick="convertirReserva(\''+r.id+'\')">💱 → USD</button>';
     return '<div class="tx"><div class="tx-ico" style="background:'+(isUSD?'rgba(6,182,212,.1)':'rgba(16,185,129,.1)')+'">'+ico+'</div>'+
       '<div class="tx-info"><div class="tx-name">'+(r.descripcion||r.ubicacion)+'</div><div class="tx-sub">'+r.ubicacion+' · '+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'})+'</div></div>'+
       '<div class="tx-right"><div class="tx-amt" style="color:'+color+'">'+(isUSD?fmtU(r.monto):fmt(r.monto))+'</div>'+
-      '<div class="tx-btns"><button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openReservaModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
+      '<div class="tx-btns">'+convBtn+
+      '<button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openReservaModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
       '<button class="btn btn-d btn-s" style="padding:3px 8px;font-size:11px" onclick="delReserva(\''+r.id+'\')">🗑</button></div></div></div>';
   }).join('');
 }
@@ -1294,6 +1325,25 @@ function delReserva(id){
   if(!confirm('¿Eliminar esta reserva?'))return;
   D.reservas=D.reservas.filter(function(r){return r.id!==id;});
   save();renderReservas();toast('✓ Eliminado');
+}
+function convertirReserva(id){
+  if(!tcVenta){
+    toast('Primero actualizá la cotización (botón 🔄 Actualizar)',1);
+    return;
+  }
+  var i=D.reservas.findIndex(function(r){return r.id===id;});
+  if(i<0)return;
+  var r=D.reservas[i];
+  var esUSD=r.moneda==='USD';
+  var montoOrig=r.monto;
+  var montoNuevo=esUSD?Math.round(montoOrig*tcVenta):parseFloat((montoOrig/tcVenta).toFixed(2));
+  var monedaNueva=esUSD?'ARS':'USD';
+  var de=esUSD?fmtU(montoOrig):fmt(montoOrig);
+  var a=esUSD?fmt(montoNuevo):fmtU(montoNuevo);
+  if(!confirm('Convertir '+de+' → '+a+'\n(Tipo vendedor Banco Nación: $'+Math.round(tcVenta).toLocaleString('es-AR')+')\n\n¿Confirmás el cambio en este registro?'))return;
+  D.reservas[i]=Object.assign({},r,{moneda:monedaNueva,monto:montoNuevo});
+  save();renderReservas();
+  toast('✓ Convertido: '+de+' → '+a);
 }
 
 // ════════════════════════════════════════════════════
@@ -1593,6 +1643,37 @@ function removeCfg(type,name){
 }
 
 // ════════════════════════════════════════════════════
+//  TOGGLE GLOBAL ARS ↔ USD
+// ════════════════════════════════════════════════════
+async function toggleViewCurrency(){
+  if(!viewUSD && tcVenta===0){
+    // Necesitamos cotización primero
+    updateCurrToggle('loading');
+    await fetchTipoCambio();
+    if(tcVenta===0){updateCurrToggle(false);return;} // falló
+  }
+  viewUSD=!viewUSD;
+  updateCurrToggle(viewUSD);
+  renderAll();
+  toast(viewUSD?'💵 Mostrando todo en USD':'🇦🇷 Mostrando todo en ARS');
+}
+
+function updateCurrToggle(state){
+  var hd=document.getElementById('curr-toggle-hd');
+  var sb=document.getElementById('curr-toggle-sb');
+  if(state==='loading'){
+    if(hd)hd.textContent='⏳ Cargando…';
+    if(sb)sb.textContent='⏳ Obteniendo cotización…';
+    return;
+  }
+  var usd=state===true;
+  var txtHd=usd?'🇦🇷 Ver en ARS':'💵 Ver en USD';
+  var txtSb=usd?'🇦🇷 Ver todo en ARS':'💵 Ver todo en USD';
+  if(hd){hd.textContent=txtHd;hd.style.background=usd?'rgba(6,182,212,.85)':'rgba(255,255,255,.12)';hd.style.color=usd?'#fff':'rgba(255,255,255,.75)';hd.style.borderColor=usd?'rgba(6,182,212,.5)':'rgba(255,255,255,.2)';}
+  if(sb){sb.textContent=txtSb;sb.style.background=usd?'rgba(6,182,212,.2)':'rgba(255,255,255,.08)';sb.style.color=usd?'#67E8F9':'rgba(255,255,255,.7)';sb.style.borderColor=usd?'rgba(6,182,212,.35)':'rgba(255,255,255,.12)';}
+}
+
+// ════════════════════════════════════════════════════
 //  PAGADO TOGGLES
 // ════════════════════════════════════════════════════
 function togglePagadoTarj(id){
@@ -1613,7 +1694,6 @@ function togglePagadoFijo(id){
 // ════════════════════════════════════════════════════
 //  CONVERSOR ARS ↔ USD (Banco Nación Oficial)
 // ════════════════════════════════════════════════════
-var tcVenta=0,tcCompra=0;
 async function fetchTipoCambio(){
   var info=document.getElementById('res-tc-info');
   if(info)info.innerHTML='⏳ Obteniendo cotización del Banco Nación…';
