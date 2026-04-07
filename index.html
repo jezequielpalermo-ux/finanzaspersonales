@@ -148,6 +148,11 @@ input,select,textarea{font-family:inherit}
 /* Config grid */
 .cfg-grid{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:600px){.cfg-grid{grid-template-columns:1fr 1fr}}
+/* Pagado badges */
+.badge-pagado{display:inline-block;background:rgba(16,185,129,.13);color:#059669;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
+.badge-pend{display:inline-block;background:rgba(245,158,11,.13);color:#B45309;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
+/* Pending nav dot */
+.nav-dot{position:absolute;top:4px;right:5px;background:var(--red);color:#fff;font-size:8px;font-weight:800;min-width:15px;height:15px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;z-index:1}
 
 /* Page heading (shared) */
 .dt-head{margin-bottom:16px}
@@ -183,7 +188,7 @@ input,select,textarea{font-family:inherit}
   .sb-cat-val{color:#fff;font-size:11px;font-weight:800}
 
   .sb-nav{flex:1;display:flex;flex-direction:column;gap:3px;position:relative;z-index:1}
-  .sb-nav-btn{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:11px;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all .15s}
+  .sb-nav-btn{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:11px;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all .15s;position:relative}
   .sb-nav-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
   .sb-nav-btn:hover{background:rgba(255,255,255,.09);color:rgba(255,255,255,.85)}
   .sb-nav-btn.active{background:rgba(255,255,255,.14);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
@@ -331,6 +336,13 @@ input,select,textarea{font-family:inherit}
       <div class="card" id="venc-card" style="display:none">
         <div class="card-hd"><div class="card-title">⚠️ Próximos vencimientos</div></div>
         <div id="venc-list"></div>
+      </div>
+      <div class="card" id="pend-card" style="display:none;border:1px solid rgba(239,68,68,.18)">
+        <div class="card-hd">
+          <div class="card-title" style="color:var(--red)">🔴 Pendientes de pago</div>
+          <div id="pend-total" class="badge bg-red" style="font-size:13px;font-weight:800"></div>
+        </div>
+        <div id="pend-list"></div>
       </div>
       <div class="card">
         <div class="card-hd">
@@ -504,6 +516,24 @@ input,select,textarea{font-family:inherit}
         <div><div class="dt-title">Reservas</div><div class="dt-sub">Ahorros en Pesos y Dólares</div></div>
         <button class="btn btn-p btn-s" onclick="openReservaModal(null)">+ Agregar</button>
       </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-hd">
+          <div class="card-title">💱 Conversor ARS ↔ USD Oficial</div>
+          <button class="btn btn-g btn-s" onclick="fetchTipoCambio()">🔄 Actualizar</button>
+        </div>
+        <div id="res-tc-info" style="font-size:12px;color:var(--txt2);margin-bottom:12px;padding:8px 10px;background:var(--bg);border-radius:8px">Presioná <strong>Actualizar</strong> para obtener la cotización oficial del Banco Nación</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px">
+            <label class="fl">Pesos (ARS)</label>
+            <input id="conv-ars" type="number" class="fi" placeholder="0" oninput="convertARS()">
+          </div>
+          <div style="padding:10px 4px;font-size:20px;color:var(--txt2);align-self:flex-end;margin-bottom:2px">↔</div>
+          <div style="flex:1;min-width:120px">
+            <label class="fl">Dólares USD (al tipo venta)</label>
+            <input id="conv-usd" type="number" class="fi" placeholder="0" oninput="convertUSD()">
+          </div>
+        </div>
+      </div>
       <div class="stats" style="margin-bottom:12px">
         <div class="stat"><div class="stat-ico" style="background:rgba(16,185,129,.1)">💰</div><div class="stat-lbl">Total ARS</div><div class="stat-val" id="res-tot-ars">$0</div></div>
         <div class="stat"><div class="stat-ico" style="background:rgba(6,182,212,.1)">💵</div><div class="stat-lbl">Total USD</div><div class="stat-val" id="res-tot-usd">USD 0</div></div>
@@ -615,6 +645,10 @@ input,select,textarea{font-family:inherit}
     <div class="fg"><label class="fl">Monto ($ARS)</label><input id="mt-monto" type="number" class="fi" placeholder="0"></div>
     <div class="fg"><label class="fl">Fuente</label><select id="mt-fuente" class="fi"><option value="manual">Manual</option><option value="pdf">PDF importado</option></select></div>
     <div class="fg"><label class="fl">Notas</label><input id="mt-notas" class="fi" placeholder="Opcional"></div>
+    <div class="fg" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:10px">
+      <input type="checkbox" id="mt-pagado" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex-shrink:0">
+      <label for="mt-pagado" style="font-size:14px;font-weight:600;cursor:pointer;color:var(--txt)">Marcar como pagado</label>
+    </div>
     <div class="m-actions">
       <button class="btn btn-o btn-full" onclick="closeModal('m-tarj')">Cancelar</button>
       <button class="btn btn-p btn-full" onclick="saveTarj()">Guardar</button>
@@ -632,6 +666,10 @@ input,select,textarea{font-family:inherit}
       <div class="fg"><label class="fl">Monto ($ARS)</label><input id="mf-monto" type="number" class="fi" placeholder="0"></div>
     </div>
     <div class="fg"><label class="fl">Notas</label><input id="mf-notas" class="fi" placeholder="Opcional"></div>
+    <div class="fg" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:10px">
+      <input type="checkbox" id="mf-pagado" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex-shrink:0">
+      <label for="mf-pagado" style="font-size:14px;font-weight:600;cursor:pointer;color:var(--txt)">Marcar como pagado</label>
+    </div>
     <div class="m-actions">
       <button class="btn btn-o btn-full" onclick="closeModal('m-fijo')">Cancelar</button>
       <button class="btn btn-p btn-full" onclick="saveFijo()">Guardar</button>
@@ -1016,6 +1054,32 @@ function renderDashboard(){
       '<div class="tx-info"><div class="tx-name">'+r.label+'</div><div class="tx-sub">'+r.sub+' · '+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+'</div></div>'+
       '<div class="tx-right"><div class="tx-amt" style="color:var(--red)">'+fmt(r.monto)+'</div></div></div>';
   }).join('');
+  // Pendientes de pago
+  var pendTarj=D.tarjetas.filter(function(r){return inPeriod(r,selY,selM)&&!r.pagado;});
+  var pendFijo=D.gastosFijos.filter(function(r){return inPeriod(r,selY,selM)&&!r.pagado;});
+  var allPend=pendTarj.map(function(r){return{ico:'💳',label:r.tarjeta,monto:r.monto,id:r.id,tipo:'Tarj'};}).concat(
+              pendFijo.map(function(r){return{ico:'📋',label:r.categoria,monto:r.monto,id:r.id,tipo:'Fijo'};}));
+  allPend.sort(function(a,b){return b.monto-a.monto;});
+  var pendTotal=allPend.reduce(function(s,r){return s+r.monto;},0);
+  var pc=document.getElementById('pend-card');
+  if(pc){
+    pc.style.display=allPend.length?'block':'none';
+    if(allPend.length){
+      document.getElementById('pend-total').textContent=fmt(pendTotal);
+      document.getElementById('pend-list').innerHTML=allPend.map(function(r){
+        return '<div class="tx"><div class="tx-ico" style="background:rgba(239,68,68,.08)">'+r.ico+'</div>'+
+          '<div class="tx-info"><div class="tx-name">'+r.label+'</div></div>'+
+          '<div class="tx-right"><div class="tx-amt" style="color:var(--red)">'+fmt(r.monto)+'</div>'+
+          '<div class="tx-btns"><button class="btn btn-p btn-s" style="padding:3px 10px;font-size:11px" onclick="togglePagado'+r.tipo+'('+r.id+')">✓ Pagar</button></div></div></div>';
+      }).join('');
+    }
+  }
+  // Nav dot for pending tarjetas
+  var pendCount=pendTarj.length;
+  document.querySelectorAll('[data-tab="tarjetas"]').forEach(function(b){
+    var ex=b.querySelector('.nav-dot');if(ex)ex.remove();
+    if(pendCount){var d=document.createElement('div');d.className='nav-dot';d.textContent=pendCount;b.appendChild(d);}
+  });
   renderDashCharts();renderDashPie();
 }
 
@@ -1063,10 +1127,12 @@ function renderTarjetas(){
   document.getElementById('tarj-list').innerHTML=items.map(function(r,i){
     var vstr=r.vencimiento?' · Vence '+new Date(r.vencimiento+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}):'';
     var badge=r.fuente==='pdf'?'<span class="badge bg-violet" style="margin-left:6px;font-size:9px">PDF</span>':'';
+    var pagBadge=r.pagado?'<span class="badge-pagado" style="margin-left:6px">✓ Pagado</span>':'<span class="badge-pend" style="margin-left:6px">⏳ Pendiente</span>';
     return '<div class="tx"><div class="tx-ico" style="background:'+PAL[i%PAL.length]+'22;font-size:13px;font-weight:800;color:'+PAL[i%PAL.length]+'">'+r.tarjeta.substring(0,2).toUpperCase()+'</div>'+
-      '<div class="tx-info"><div class="tx-name">'+r.tarjeta+badge+'</div><div class="tx-sub">'+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+vstr+'</div></div>'+
-      '<div class="tx-right"><div class="tx-amt" style="color:var(--red)">'+fmt(r.monto)+'</div>'+
-      '<div class="tx-btns"><button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openTarjModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
+      '<div class="tx-info"><div class="tx-name">'+r.tarjeta+badge+pagBadge+'</div><div class="tx-sub">'+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+vstr+'</div></div>'+
+      '<div class="tx-right"><div class="tx-amt" style="color:'+(r.pagado?'var(--green)':'var(--red)')+'">'+fmt(r.monto)+'</div>'+
+      '<div class="tx-btns"><button class="btn '+(r.pagado?'btn-g':'btn-p')+' btn-s" style="padding:3px 8px;font-size:11px" title="'+(r.pagado?'Marcar pendiente':'Marcar pagado')+'" onclick="togglePagadoTarj('+r.id+')">'+(r.pagado?'↩':'✓')+'</button>'+
+      '<button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openTarjModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
       '<button class="btn btn-d btn-s" style="padding:3px 8px;font-size:11px" onclick="delTarj('+r.id+')">🗑</button></div></div></div>';
   }).join('');
   renderTarjChart();
@@ -1095,10 +1161,12 @@ function renderFijos(){
   if(!items.length){document.getElementById('fijo-list').innerHTML='<div class="empty"><div class="empty-ico">📋</div><p>Sin gastos fijos</p></div>';return;}
   items.sort(function(a,b){return b.monto-a.monto;});
   document.getElementById('fijo-list').innerHTML=items.map(function(r){
+    var pagBadge=r.pagado?'<span class="badge-pagado" style="margin-top:3px">✓ Pagado</span>':'<span class="badge-pend" style="margin-top:3px">⏳ Pendiente</span>';
     return '<div class="tx"><div class="tx-ico" style="background:rgba(6,182,212,.1)">📋</div>'+
-      '<div class="tx-info"><div class="tx-name">'+r.categoria+'</div><div class="tx-sub">'+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+(r.notas?' · '+r.notas:'')+'</div></div>'+
-      '<div class="tx-right"><div class="tx-amt" style="color:var(--red)">'+fmt(r.monto)+'</div>'+
-      '<div class="tx-btns"><button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openFijoModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
+      '<div class="tx-info"><div class="tx-name">'+r.categoria+'</div><div class="tx-sub">'+new Date(r.fecha+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+(r.notas?' · '+r.notas:'')+'</div>'+pagBadge+'</div>'+
+      '<div class="tx-right"><div class="tx-amt" style="color:'+(r.pagado?'var(--green)':'var(--red)')+'">'+fmt(r.monto)+'</div>'+
+      '<div class="tx-btns"><button class="btn '+(r.pagado?'btn-g':'btn-p')+' btn-s" style="padding:3px 8px;font-size:11px" title="'+(r.pagado?'Marcar pendiente':'Marcar pagado')+'" onclick="togglePagadoFijo('+r.id+')">'+(r.pagado?'↩':'✓')+'</button>'+
+      '<button class="btn btn-g btn-s" style="padding:3px 8px;font-size:11px" onclick="openFijoModal('+JSON.stringify(r).replace(/"/g,"'")+')">✏️</button>'+
       '<button class="btn btn-d btn-s" style="padding:3px 8px;font-size:11px" onclick="delFijo('+r.id+')">🗑</button></div></div></div>';
   }).join('');
 }
@@ -1336,11 +1404,12 @@ function openTarjModal(rec){
   document.getElementById('mt-monto').value=rec?rec.monto:'';
   document.getElementById('mt-fuente').value=rec?(rec.fuente||'manual'):'manual';
   document.getElementById('mt-notas').value=rec?(rec.notas||''):'';
+  document.getElementById('mt-pagado').checked=rec?(rec.pagado||false):false;
   document.getElementById('m-tarj-title').textContent=rec?'Editar tarjeta':'Nuevo gasto de tarjeta';
   openModal('m-tarj');
 }
 function saveTarj(){
-  var rec={id:editT?editT.id:uid(),tarjeta:document.getElementById('mt-tarj').value,fecha:document.getElementById('mt-fecha').value,vencimiento:document.getElementById('mt-venc').value,monto:parseFloat(document.getElementById('mt-monto').value)||0,fuente:document.getElementById('mt-fuente').value,notas:document.getElementById('mt-notas').value};
+  var rec={id:editT?editT.id:uid(),tarjeta:document.getElementById('mt-tarj').value,fecha:document.getElementById('mt-fecha').value,vencimiento:document.getElementById('mt-venc').value,monto:parseFloat(document.getElementById('mt-monto').value)||0,fuente:document.getElementById('mt-fuente').value,notas:document.getElementById('mt-notas').value,pagado:document.getElementById('mt-pagado').checked};
   if(!rec.fecha||!rec.monto){toast('Completá fecha y monto',1);return;}
   closeModal('m-tarj');
   if(editT){var i=D.tarjetas.findIndex(function(x){return x.id===editT.id;});if(i>=0)D.tarjetas[i]=rec;}else D.tarjetas.push(rec);
@@ -1363,10 +1432,11 @@ function openFijoModal(rec){
   document.getElementById('mf-fecha').value=rec?rec.fecha:today();
   document.getElementById('mf-monto').value=rec?rec.monto:'';
   document.getElementById('mf-notas').value=rec?(rec.notas||''):'';
+  document.getElementById('mf-pagado').checked=rec?(rec.pagado||false):false;
   openModal('m-fijo');
 }
 function saveFijo(){
-  var rec={id:editF?editF.id:uid(),categoria:document.getElementById('mf-cat').value,fecha:document.getElementById('mf-fecha').value,monto:parseFloat(document.getElementById('mf-monto').value)||0,notas:document.getElementById('mf-notas').value};
+  var rec={id:editF?editF.id:uid(),categoria:document.getElementById('mf-cat').value,fecha:document.getElementById('mf-fecha').value,monto:parseFloat(document.getElementById('mf-monto').value)||0,notas:document.getElementById('mf-notas').value,pagado:document.getElementById('mf-pagado').checked};
   if(!rec.fecha||!rec.monto){toast('Completá fecha y monto',1);return;}
   closeModal('m-fijo');
   if(editF){var i=D.gastosFijos.findIndex(function(x){return x.id===editF.id;});if(i>=0)D.gastosFijos[i]=rec;}else D.gastosFijos.push(rec);
@@ -1520,6 +1590,66 @@ function removeCfg(type,name){
   if(!confirm('¿Quitar "'+name+'"?'))return;
   D.config[type]=(D.config[type]||[]).filter(function(c){return c!==name;});
   save();renderConfig();toast('✓ Quitado');
+}
+
+// ════════════════════════════════════════════════════
+//  PAGADO TOGGLES
+// ════════════════════════════════════════════════════
+function togglePagadoTarj(id){
+  var i=D.tarjetas.findIndex(function(r){return r.id===id;});
+  if(i<0)return;
+  D.tarjetas[i].pagado=!D.tarjetas[i].pagado;
+  save();renderTarjetas();renderDashboard();
+  toast(D.tarjetas[i].pagado?'✓ Marcado como pagado':'↩ Marcado como pendiente');
+}
+function togglePagadoFijo(id){
+  var i=D.gastosFijos.findIndex(function(r){return r.id===id;});
+  if(i<0)return;
+  D.gastosFijos[i].pagado=!D.gastosFijos[i].pagado;
+  save();renderFijos();renderDashboard();
+  toast(D.gastosFijos[i].pagado?'✓ Marcado como pagado':'↩ Marcado como pendiente');
+}
+
+// ════════════════════════════════════════════════════
+//  CONVERSOR ARS ↔ USD (Banco Nación Oficial)
+// ════════════════════════════════════════════════════
+var tcVenta=0,tcCompra=0;
+async function fetchTipoCambio(){
+  var info=document.getElementById('res-tc-info');
+  if(info)info.innerHTML='⏳ Obteniendo cotización del Banco Nación…';
+  try{
+    var res=await fetch('https://dolarapi.com/v1/dolares/oficial');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var d=await res.json();
+    tcVenta=d.venta;tcCompra=d.compra;
+    if(info)info.innerHTML=
+      '🏦 <strong>Banco Nación Oficial</strong> &nbsp;·&nbsp; '+
+      'Compra: <strong style="color:var(--green)">'+fmt(tcCompra)+'</strong> &nbsp;'+
+      'Venta: <strong style="color:var(--red)">'+fmt(tcVenta)+'</strong> '+
+      '<span style="color:var(--txt2);font-size:10px">· '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</span>';
+    toast('✓ Cotización actualizada');
+  }catch(e){
+    if(info)info.innerHTML='❌ No se pudo obtener la cotización. Verificá tu conexión a internet.';
+    toast('Error al obtener cotización',1);
+  }
+}
+function convertARS(){
+  if(!tcVenta){
+    var conv=document.getElementById('conv-usd');
+    if(conv)conv.value='';
+    return;
+  }
+  var ars=parseFloat(document.getElementById('conv-ars').value)||0;
+  document.getElementById('conv-usd').value=ars?(ars/tcVenta).toFixed(2):'';
+}
+function convertUSD(){
+  if(!tcVenta){
+    var conv=document.getElementById('conv-ars');
+    if(conv)conv.value='';
+    return;
+  }
+  var usd=parseFloat(document.getElementById('conv-usd').value)||0;
+  document.getElementById('conv-ars').value=usd?Math.round(usd*tcVenta):'';
 }
 
 // ════════════════════════════════════════════════════
