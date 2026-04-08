@@ -151,6 +151,14 @@ input,select,textarea{font-family:inherit}
 /* Pagado badges */
 .badge-pagado{display:inline-block;background:rgba(16,185,129,.13);color:#059669;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
 .badge-pend{display:inline-block;background:rgba(245,158,11,.13);color:#B45309;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
+.venc-urgente{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.18);margin-bottom:7px}
+.venc-urgente.amarillo{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.2)}
+.venc-dias{min-width:38px;height:38px;border-radius:10px;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.venc-dias.amarillo{background:#F59E0B}
+.venc-dias.verde{background:var(--green)}
+.venc-info{flex:1;min-width:0}
+.venc-nombre{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.venc-fecha{font-size:11px;color:var(--txt2);margin-top:1px}
 /* Pending nav dot */
 .nav-dot{position:absolute;top:4px;right:5px;background:var(--red);color:#fff;font-size:8px;font-weight:800;min-width:15px;height:15px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none;z-index:1}
 
@@ -338,7 +346,10 @@ input,select,textarea{font-family:inherit}
         </div>
       </div>
       <div class="card" id="venc-card" style="display:none">
-        <div class="card-hd"><div class="card-title">⚠️ Próximos vencimientos</div></div>
+        <div class="card-hd">
+          <div class="card-title">⚠️ Próximos vencimientos</div>
+          <button class="btn btn-g btn-s" onclick="exportarCalendario()" title="Exportar al calendario del iPhone">📅 iPhone</button>
+        </div>
         <div id="venc-list"></div>
       </div>
       <div class="card" id="pend-card" style="display:none;border:1px solid rgba(239,68,68,.18)">
@@ -865,6 +876,56 @@ async function forzarRestauracion(){
   }catch(e){setSyncBadge('err');toast('Error al restaurar: '+e.message,1);}
 }
 
+function exportarCalendario(){
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Control de Gastos//ES','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Vencimientos Tarjetas','X-WR-TIMEZONE:America/Argentina/Buenos_Aires'];
+  var today=new Date();
+  // Include all non-historial tarjetas with vencimiento
+  var tarjConVenc=D.tarjetas.filter(function(r){
+    return r.vencimiento && r.notas!=='Historial importado' && !r.pagado;
+  });
+  // Also include recurring gastosFijos (future months) if they have a fecha
+  var fijosProx=D.gastosFijos.filter(function(r){
+    return r.fecha && r.notas!=='Historial importado' && !r.pagado;
+  });
+  function toIcsDate(dateStr){
+    var d=new Date(dateStr+' ');
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var day=String(d.getDate()).padStart(2,'0');
+    return y+''+m+''+day;
+  }
+  function makeEvent(dtStr,summary,desc,uid){
+    var dt=toIcsDate(dtStr);
+    var d=new Date(dtStr+' ');
+    d.setDate(d.getDate()+1);
+    var y2=d.getFullYear(),m2=String(d.getMonth()+1).padStart(2,'0'),d2=String(d.getDate()).padStart(2,'0');
+    var dtend=y2+''+m2+''+d2;
+    var now=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
+    return ['BEGIN:VEVENT','DTSTART;VALUE=DATE:'+dt,'DTEND;VALUE=DATE:'+dtend,'SUMMARY:'+summary,'DESCRIPTION:'+desc,'UID:'+uid+'-'+dt+'@controlGastos','DTSTAMP:'+now,'BEGIN:VALARM','TRIGGER:-PT3D','ACTION:DISPLAY','DESCRIPTION:Recordatorio: '+summary,'END:VALARM','END:VEVENT'];
+  }
+  tarjConVenc.forEach(function(r){
+    var monto=Math.round(r.monto).toLocaleString('es-AR');
+    var summary='Vence '+r.tarjeta;
+    var desc='Monto: $'+monto;
+    lines=lines.concat(makeEvent(r.vencimiento,summary,desc,'tarj-'+r.id));
+  });
+  fijosProx.forEach(function(r){
+    var monto=Math.round(r.monto).toLocaleString('es-AR');
+    var summary='Pago '+r.categoria;
+    var desc='Monto: $'+monto;
+    lines=lines.concat(makeEvent(r.fecha,summary,desc,'fijo-'+r.id));
+  });
+  lines.push('END:VCALENDAR');
+  var content=lines.join('\r\n');
+  var blob=new Blob([content],{type:'text/calendar;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  var fecha=new Date().toISOString().split('T')[0];
+  a.download='vencimientos-'+fecha+'.ics';
+  a.click();
+  toast('📅 Archivo .ics descargado — abrilo desde el iPhone para agregar al Calendar');
+}
+
 function exportarBackup(){
   var blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -1079,15 +1140,29 @@ function renderDashboard(){
   var today=new Date();
   var soon=D.tarjetas.filter(function(r){
     if(!r.vencimiento)return false;
-    var d=new Date(r.vencimiento),diff=(d-today)/(864e5);
+    var d=new Date(r.vencimiento+' '),diff=Math.ceil((d-today)/(864e5));
     return diff>=0&&diff<=10;
   }).sort(function(a,b){return a.vencimiento.localeCompare(b.vencimiento);});
   var vc=document.getElementById('venc-card');
   vc.style.display=soon.length?'block':'none';
-  if(soon.length)document.getElementById('venc-list').innerHTML=soon.map(function(r){
-    var ds=new Date(r.vencimiento+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
-    return '<div class="venc-soon"><strong>'+r.tarjeta+'</strong> — vence el '+ds+' · '+fmt(r.monto)+'</div>';
-  }).join('');
+  if(soon.length){
+    var urgentes=soon.filter(function(r){var diff=Math.ceil((new Date(r.vencimiento+' ')-today)/(864e5));return diff<=3;});
+    if(urgentes.length){vc.style.border='1.5px solid rgba(239,68,68,.35)';vc.querySelector('.card-title').textContent='🚨 Vencimientos próximos';}
+    else{vc.style.border='';vc.querySelector('.card-title').textContent='⚠️ Próximos vencimientos';}
+    document.getElementById('venc-list').innerHTML=soon.map(function(r){
+      var diff=Math.ceil((new Date(r.vencimiento+' ')-today)/(864e5));
+      var ds=new Date(r.vencimiento+' ').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
+      var urgente=diff<=3;
+      var diasTxt=diff===0?'HOY':diff===1?'1 día':diff+' días';
+      var colorClass=diff<=3?'':'amarillo';
+      return '<div class="venc-urgente '+colorClass+'">'+
+        '<div class="venc-dias '+colorClass+'">'+diasTxt+'</div>'+
+        '<div class="venc-info"><div class="venc-nombre">'+r.tarjeta+'</div>'+
+        '<div class="venc-fecha">Vence el '+ds+' · '+fmt(r.monto)+'</div></div>'+
+        (urgente?'<div style="font-size:18px">🔴</div>':'<div style="font-size:18px">🟡</div>')+
+        '</div>';
+    }).join('');
+  }
 
   var all=[];
   D.tarjetas.forEach(function(r){all.push({label:r.tarjeta,sub:'Tarjeta',monto:r.monto,fecha:r.fecha,ico:'💳',color:'rgba(79,70,229,.1)'});});
