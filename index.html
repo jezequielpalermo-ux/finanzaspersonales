@@ -871,14 +871,26 @@ function exportarBackup(){
   a.download='control-gastos-backup-'+new Date().toISOString().split('T')[0]+'.json';a.click();
 }
 
-function saveSBConfig(){
+async function saveSBConfig(){
   var url=document.getElementById('sb-url-input').value.trim();
   var key=document.getElementById('sb-key-input').value.trim();
   if(url){SB_URL=url;localStorage.setItem('sb_url',url);}
   if(key){SB_KEY=key;localStorage.setItem('sb_key',key);}
   var st=document.getElementById('sb-status');
-  if(sbReady()){st.innerHTML='<span style="color:var(--green)">✓ Configurado — los datos se sincronizarán automáticamente</span>';pushRemoto();}
-  else{st.innerHTML='<span style="color:var(--txt2)">Ingresá tu URL y anon key de Supabase</span>';}
+  if(sbReady()){
+    st.innerHTML='<span style="color:var(--green)">✓ Conectado — cargando datos…</span>';
+    var remote=await pullRemoto();
+    if(remote&&remote.tarjetas&&remote.tarjetas.length>0){
+      D=Object.assign({},DEFAULT_STATE(),remote);
+      localStorage.setItem('controlGastosState',JSON.stringify(D));
+      renderAll();
+      st.innerHTML='<span style="color:var(--green)">✓ Supabase conectado — datos cargados</span>';
+      toast('✓ Datos cargados desde Supabase');
+    }else{
+      pushRemoto();
+      st.innerHTML='<span style="color:var(--green)">✓ Configurado — los datos se sincronizarán automáticamente</span>';
+    }
+  }else{st.innerHTML='<span style="color:var(--txt2)">Ingresá tu URL y anon key de Supabase</span>';}
 }
 
 // ════════════════════════════════════════════════════
