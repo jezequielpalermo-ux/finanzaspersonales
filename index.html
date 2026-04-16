@@ -477,6 +477,7 @@ input,select,textarea{font-family:inherit}
         <button class="sub-tab" onclick="switchRepTab('pdfs')">PDFs</button>
         <button class="sub-tab" onclick="switchRepTab('top')">Top</button>
         <button class="sub-tab" onclick="switchRepTab('historial')">📈 Historial</button>
+        <button class="sub-tab" onclick="switchRepTab('analisis')">📊 Análisis</button>
       </div>
 
       <div id="rep-monthly">
@@ -534,6 +535,73 @@ input,select,textarea{font-family:inherit}
         <div class="card" style="margin-top:12px">
           <div class="card-hd"><div class="card-title">Total mensual histórico</div></div>
           <div class="chart-wrap" style="height:180px"><canvas id="ch-hist-total"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ANÁLISIS DE TARJETAS -->
+      <div id="rep-analisis" style="display:none">
+        <!-- KPIs -->
+        <div class="stats" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+          <div class="stat">
+            <div class="stat-ico" style="background:rgba(16,185,129,.12)">💚</div>
+            <div class="stat-lbl">American Express</div>
+            <div class="stat-val" id="an-kpi-amex">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-ico" style="background:rgba(79,70,229,.12)">🔵</div>
+            <div class="stat-lbl">Mastercard Black</div>
+            <div class="stat-val" id="an-kpi-mc">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-ico" style="background:rgba(124,58,237,.12)">🟣</div>
+            <div class="stat-lbl">Visa Galicia</div>
+            <div class="stat-val" id="an-kpi-visa">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-ico" style="background:rgba(245,158,11,.12)">📊</div>
+            <div class="stat-lbl">Total histórico</div>
+            <div class="stat-val" id="an-kpi-total">—</div>
+          </div>
+        </div>
+
+        <!-- Evolución mensual -->
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title">Evolución mensual por tarjeta</div>
+            <span style="font-size:9px;color:var(--txt2)">Ene 2025 → Abr 2026</span>
+          </div>
+          <div class="chart-wrap-lg"><canvas id="ch-analisis-evol"></canvas></div>
+        </div>
+
+        <!-- Categorías (Galicia) -->
+        <div class="card" style="margin-top:12px">
+          <div class="card-hd">
+            <div class="card-title">Categorías — Galicia (MC + Visa)</div>
+            <span style="font-size:9px;color:var(--txt2)">628 transacciones</span>
+          </div>
+          <div style="height:330px"><canvas id="ch-analisis-cat"></canvas></div>
+        </div>
+
+        <!-- Top comercios -->
+        <div class="card" style="margin-top:12px">
+          <div class="card-hd"><div class="card-title">Top comercios — Galicia</div></div>
+          <div id="an-top-list"></div>
+        </div>
+
+        <!-- Dólares + Impuestos -->
+        <div class="stats" style="margin-top:12px;margin-bottom:20px">
+          <div class="stat" style="text-align:center">
+            <div class="stat-ico" style="background:rgba(6,182,212,.12);margin:0 auto 6px">💵</div>
+            <div class="stat-lbl">Compras USD (Galicia)</div>
+            <div class="stat-val" style="color:var(--cyan)">U$S 8.903</div>
+            <div class="stat-delta" style="color:var(--txt2)">Ene 25 – Mar 26</div>
+          </div>
+          <div class="stat" style="text-align:center">
+            <div class="stat-ico" style="background:rgba(239,68,68,.12);margin:0 auto 6px">🏛️</div>
+            <div class="stat-lbl">Impuestos Galicia</div>
+            <div class="stat-val" style="color:var(--red)">$3.283.383</div>
+            <div class="stat-delta" style="color:var(--txt2)">IVA · IIBB · DB.RG 5617</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1042,9 +1110,12 @@ function switchGastosTab(t){
 }
 function switchRepTab(t){
   repSubTab=t;
-  ['monthly','annual','pdfs','top','historial'].forEach(function(x){document.getElementById('rep-'+x).style.display=x===t?'block':'none';});
-  document.querySelectorAll('#rep-subtabs .sub-tab').forEach(function(b,i){b.classList.toggle('active',['monthly','annual','pdfs','top','historial'][i]===t);});
-  setTimeout(function(){renderRepCharts();},60);
+  ['monthly','annual','pdfs','top','historial','analisis'].forEach(function(x){document.getElementById('rep-'+x).style.display=x===t?'block':'none';});
+  document.querySelectorAll('#rep-subtabs .sub-tab').forEach(function(b,i){b.classList.toggle('active',['monthly','annual','pdfs','top','historial','analisis'][i]===t);});
+  setTimeout(function(){
+    if(t==='analisis')renderAnalisis();
+    else renderRepCharts();
+  },60);
 }
 
 // ════════════════════════════════════════════════════
@@ -1567,6 +1638,132 @@ function renderHistorial(){
   var avgMon=prom.reduce(function(s,v){return s+v;},0)/(prom.length||1);
   var el=document.getElementById('hist-stats');
   if(el)el.innerHTML=statCard('📅','Total 2025',t25,0)+statCard('🗓','Total 2026',t26,0)+statCard('📊','Prom. mensual',Math.round(avgMon),0);
+}
+
+// ════════════════════════════════════════════════════
+//  ANÁLISIS DE TARJETAS
+// ════════════════════════════════════════════════════
+var anChart1=null,anChart2=null;
+function renderAnalisis(){
+  var MES_ORDER=['2025-01','2025-02','2025-03','2025-04','2025-05','2025-06','2025-07','2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03','2026-04'];
+  var MES_LABELS=['Ene 25','Feb 25','Mar 25','Abr 25','May 25','Jun 25','Jul 25','Ago 25','Sep 25','Oct 25','Nov 25','Dic 25','Ene 26','Feb 26','Mar 26','Abr 26'];
+  var mMap={'Enero':'01','Febrero':'02','Marzo':'03','Abril':'04','Mayo':'05','Junio':'06','Julio':'07','Agosto':'08','Septiembre':'09','Octubre':'10','Noviembre':'11','Diciembre':'12'};
+  function mesKey(ms){if(!ms)return'';var p=ms.split(' ');return p[1]+'-'+(mMap[p[0]]||'00');}
+
+  var amex={},mc={},visa={};
+  D.tarjetas.forEach(function(r){
+    if(!r.mesResumen)return;
+    var k=mesKey(r.mesResumen);
+    if(r.tarjeta==='American Express')amex[k]=(amex[k]||0)+r.monto;
+    else if(r.tarjeta==='Mastercard Black'&&r.banco==='Galicia')mc[k]=(mc[k]||0)+r.monto;
+    else if(r.tarjeta==='Visa Galicia')visa[k]=(visa[k]||0)+r.monto;
+  });
+  var totAmex=Object.values(amex).reduce(function(a,b){return a+b;},0);
+  var totMC=Object.values(mc).reduce(function(a,b){return a+b;},0);
+  var totVisa=Object.values(visa).reduce(function(a,b){return a+b;},0);
+
+  var elAmex=document.getElementById('an-kpi-amex');
+  var elMC=document.getElementById('an-kpi-mc');
+  var elVisa=document.getElementById('an-kpi-visa');
+  var elTot=document.getElementById('an-kpi-total');
+  if(elAmex)elAmex.textContent=fmt(totAmex);
+  if(elMC)elMC.textContent=fmt(totMC);
+  if(elVisa)elVisa.textContent=fmt(totVisa);
+  if(elTot)elTot.textContent=fmt(totAmex+totMC+totVisa);
+
+  // Chart 1: Evolución mensual stacked
+  var c1=document.getElementById('ch-analisis-evol');
+  if(c1){
+    if(anChart1)anChart1.destroy();
+    anChart1=new Chart(c1.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:MES_LABELS,
+        datasets:[
+          {label:'American Express',data:MES_ORDER.map(function(k){return amex[k]||0;}),backgroundColor:'rgba(16,185,129,.82)',stack:'s'},
+          {label:'Mastercard Black',data:MES_ORDER.map(function(k){return mc[k]||0;}),backgroundColor:'rgba(79,70,229,.82)',stack:'s'},
+          {label:'Visa Galicia',data:MES_ORDER.map(function(k){return visa[k]||0;}),backgroundColor:'rgba(124,58,237,.82)',stack:'s'}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:10,weight:'600'},boxWidth:10,padding:8}},
+          tooltip:{callbacks:{label:function(ctx){return ' '+ctx.dataset.label+': '+fmt(ctx.parsed.y);}}}
+        },
+        scales:{
+          x:{stacked:true,grid:{display:false},ticks:{font:{size:9}}},
+          y:{stacked:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+v;},font:{size:9}}}
+        }
+      }
+    });
+  }
+
+  // Chart 2: Categorías horizontales (Galicia, datos extraídos de 628 txns)
+  var catData=[
+    {cat:'Otros',val:4547877},
+    {cat:'Impuestos / Perc.',val:3283383},
+    {cat:'Seguros',val:2358287},
+    {cat:'Viajes / Transporte',val:1558603},
+    {cat:'Ropa / Calzado',val:1361684},
+    {cat:'Restaurantes / Café',val:998839},
+    {cat:'Supermercados',val:823151},
+    {cat:'Vehículos',val:679439},
+    {cat:'Tec / Suscripciones',val:665817},
+    {cat:'Combustible',val:353692},
+    {cat:'Delivery',val:195096},
+    {cat:'Construcción / Hogar',val:146737},
+    {cat:'Peajes',val:128857},
+    {cat:'Servicios Públicos',val:93722}
+  ];
+  var catColors=['#6366f1','#ef4444','#f59e0b','#06b6d4','#ec4899','#10b981','#84cc16','#f97316','#8b5cf6','#14b8a6','#a855f7','#78716c','#64748b','#0ea5e9'];
+  var c2=document.getElementById('ch-analisis-cat');
+  if(c2){
+    if(anChart2)anChart2.destroy();
+    anChart2=new Chart(c2.getContext('2d'),{
+      type:'bar',
+      data:{
+        labels:catData.map(function(c){return c.cat;}),
+        datasets:[{data:catData.map(function(c){return c.val;}),backgroundColor:catColors}]
+      },
+      options:{
+        indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ' '+fmt(ctx.parsed.x);}}}},
+        scales:{
+          x:{grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+v;},font:{size:9}}},
+          y:{ticks:{font:{size:10}}}
+        }
+      }
+    });
+  }
+
+  // Top comercios
+  var topList=[
+    {n:'DB.RG 5617 30% (impuesto USD)',v:2852515},
+    {n:'PATENTES (patentes vehículos)',v:1202834},
+    {n:'DUTY FREE SHOP DOLARES',v:621786},
+    {n:'PSA (Plan Ahorro)',v:480376},
+    {n:'LAS PEPAS',v:419925},
+    {n:'PUPPIS',v:416700},
+    {n:'SWAROVSKI DOT BAIRES',v:396667},
+    {n:'DISCO SM 237 MODO',v:376123},
+    {n:'AUTO PRANA S.A.',v:349618},
+    {n:'MANNO APP',v:321829},
+    {n:'MERPAGO*LIBEROSARIO',v:274507},
+    {n:'TOYOTA ARGENTINA S.A.',v:260206},
+    {n:'MOVISTAR ARENA',v:250000},
+    {n:'GRIMOLDI',v:229567}
+  ];
+  var el=document.getElementById('an-top-list');
+  if(el){
+    el.innerHTML=topList.map(function(m,i){
+      return '<div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+        +'<span style="width:22px;font-size:10px;color:var(--txt2);font-weight:700;flex-shrink:0">'+(i+1)+'</span>'
+        +'<span style="flex:1;font-size:12px;font-weight:600;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.n+'</span>'
+        +'<span style="font-size:12px;font-weight:800;color:var(--indigo);margin-left:8px;flex-shrink:0">'+fmt(m.v)+'</span>'
+        +'</div>';
+    }).join('');
+  }
 }
 
 // ════════════════════════════════════════════════════
